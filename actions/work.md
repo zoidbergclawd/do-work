@@ -181,7 +181,7 @@ error: "Description of failure"  # Only if failed
 ```
 pending (in do-work/, set by do action)
     → claimed (moved to working/, set by work action)
-    → [planning] → [exploring] → implementing
+    → [planning] → [exploring] → implementing → testing
     → completed (moved to archive/)
     ↘ failed (moved to archive/ with error)
 ```
@@ -190,7 +190,28 @@ Brackets indicate optional phases based on route.
 
 ## Workflow
 
+**CRITICAL: Orchestrator Responsibilities**
+
+The work action is an **orchestrator**. You (the orchestrator) are responsible for ALL file management operations. Spawned agents do implementation work but do NOT touch request files or folder structure.
+
+**You must do these yourself (not delegate to agents):**
+- Move request file to `working/` folder (Step 2)
+- Update frontmatter status fields (Steps 2, 3, 7)
+- Write triage/plan/exploration/testing sections to the request file
+- Move request file to `archive/` folder (Step 7)
+- Create the git commit (Step 8)
+
+**Agents do:**
+- Planning (Route C)
+- Exploring (Routes B, C)
+- Implementation (all routes)
+- Writing/running tests
+
+---
+
 ### Step 1: Find Next Request
+
+**[Orchestrator action - do this yourself]**
 
 1. **List** (don't read) `REQ-*.md` filenames in `do-work/` folder
 2. Sort by filename (REQ-001 before REQ-002)
@@ -201,6 +222,8 @@ Brackets indicate optional phases based on route.
 If no request files found, report completion and exit.
 
 ### Step 2: Claim the Request
+
+**[Orchestrator action - do this yourself, BEFORE spawning any agents]**
 
 1. Create `do-work/working/` folder if it doesn't exist
 2. Move the request file from `do-work/` to `do-work/working/`
@@ -214,6 +237,8 @@ claimed_at: 2025-01-26T10:30:00Z
 ```
 
 ### Step 3: Triage
+
+**[Orchestrator action - do this yourself]**
 
 Read the request content and apply the triage decision flow. Update frontmatter with the chosen route:
 
@@ -250,6 +275,8 @@ Report the triage decision briefly to the user:
 - Route C: "Complex request, starting with planning"
 
 ### Step 4: Planning Phase (Route C only)
+
+**[Spawn agent, then orchestrator writes results to file]**
 
 Spawn a **Plan agent** with this prompt structure:
 
@@ -289,6 +316,8 @@ Be specific about file paths and function names where possible.
 This preserves the planning work for retrospective review - you can always see what the plan said was needed, compare it to what was actually done, and evaluate planning quality over time.
 
 ### Step 5: Exploration Phase (Routes B and C)
+
+**[Spawn agent, then orchestrator writes results to file]**
 
 Spawn an **Explore agent** with this prompt:
 
@@ -347,6 +376,8 @@ Return a summary of what you found with specific file paths and code patterns.
 
 ### Step 6: Implementation Phase (All routes)
 
+**[Spawn agent - agent does the actual code changes]**
+
 Spawn a **general-purpose agent** with context appropriate to the route:
 
 **Route A (direct):**
@@ -363,10 +394,18 @@ Implement this change. You have full access to Edit, Write, Bash, and can spawn 
 Key guidelines:
 - This was triaged as a simple request - aim for a focused, minimal change
 - If you find the request is more complex than expected, you can use Plan or Explore agents
-- Run tests after making changes if the project has tests
 - If you encounter blockers, document them clearly
 
-When complete, provide a summary of what was changed.
+Testing requirements:
+- If the project has tests, identify tests related to your changes
+- Write new tests for new functionality or bug fixes (regression tests)
+- Update existing tests if behavior intentionally changed
+- Note what tests exist and what new tests may be needed
+
+When complete, provide a summary of:
+- What was changed
+- What tests exist for this code
+- What new tests should be written (if any)
 ```
 
 **Route B (explored):**
@@ -386,10 +425,18 @@ Implement the changes using the patterns and locations identified above. You hav
 Key guidelines:
 - Follow existing code patterns identified in the codebase context
 - Make minimal, focused changes
-- Run tests after making changes if the project has tests
 - If you encounter blockers, document them clearly
 
-When complete, provide a summary of what was changed.
+Testing requirements:
+- If the project has tests, identify tests related to your changes
+- Write new tests for new functionality, following patterns from the codebase context
+- For bug fixes, add regression tests that would have caught the bug
+- Update existing tests if behavior intentionally changed
+
+When complete, provide a summary of:
+- What was changed
+- What tests exist for this code
+- What new tests were written or need to be written
 ```
 
 **Route C (planned + explored):**
@@ -412,25 +459,169 @@ Implement the changes according to the plan. You have full access to Edit, Write
 Key guidelines:
 - Follow existing code patterns identified in the codebase context
 - Make minimal, focused changes
-- Run tests after making changes if the project has tests
 - If you encounter blockers, document them clearly
+
+Testing requirements:
+- Identify existing tests related to the changes
+- Write new tests for new functionality, following patterns from the codebase context
+- Include tests as part of the implementation, not as an afterthought
+- For each new component/function/endpoint, include corresponding tests
+- Update existing tests if behavior intentionally changed
 
 When complete, provide a summary of:
 1. What files were changed/created
 2. Any deviations from the plan and why
-3. Test results if applicable
+3. What tests exist and what new tests were written
 4. Any follow-up items needed
 ```
 
 **After implementation agent returns:**
 - Capture the summary output
-- Update request status to `completed` or `failed`
+- Update request status to `testing`
+- Proceed to testing phase
+
+### Step 6.5: Testing Phase (All routes)
+
+**[Orchestrator runs tests and may spawn agent for new tests]**
+
+Before marking work as complete, verify that tests pass and appropriate test coverage exists.
+
+**1. Detect testing infrastructure:**
+
+Look for common test configurations:
+- `package.json` scripts containing "test"
+- `jest.config.*`, `vitest.config.*`, `playwright.config.*`
+- `pytest.ini`, `pyproject.toml` with pytest section
+- `Cargo.toml` (Rust has built-in testing)
+- `*_test.go` files (Go has built-in testing)
+- `*.spec.*`, `*.test.*` files in the codebase
+
+If no testing infrastructure is detected, skip this phase and proceed to archiving. Note in the implementation summary: "No testing infrastructure detected."
+
+**2. Identify relevant tests:**
+
+Based on what files were modified during implementation:
+- Find existing test files that cover the modified code
+- Check if the change warrants new tests
+
+**Tests are warranted when:**
+- New functionality was added (new functions, components, endpoints)
+- Bug fixes that should have regression tests
+- Behavioral changes that could break existing functionality
+- New edge cases or error handling paths
+
+**Tests may not be needed for:**
+- Documentation changes
+- Config value changes (unless config affects behavior significantly)
+- Pure refactoring with existing test coverage
+- Cosmetic/styling changes
+
+**3. Run existing related tests:**
+
+```bash
+# Example: JavaScript/TypeScript with Jest
+npm test -- --testPathPattern="relevant-pattern"
+
+# Example: Python with pytest
+pytest tests/relevant_test.py -v
+
+# Example: Rust
+cargo test relevant_module
+
+# Example: Go
+go test ./path/to/package -v
+```
+
+Run tests that are relevant to the changed code, not the entire test suite (unless the suite is fast).
+
+**4. If tests fail:**
+
+- Do NOT mark the request as complete
+- Return to implementation phase to fix the failing tests
+- The implementation agent should:
+  - Analyze the test failure
+  - Fix the implementation OR fix the test if the test was incorrect
+  - Re-run the tests
+
+**Loop until tests pass or it becomes clear the request cannot be completed.**
+
+**5. If new tests are needed:**
+
+Spawn a **general-purpose agent** to write tests:
+
+```
+The following changes were made for this request:
+
+## Request
+[Brief summary]
+
+## Changes Made
+[Files created/modified from implementation summary]
+
+## Task
+Write appropriate tests for these changes. Follow the existing testing patterns in the codebase.
+
+Guidelines:
+- Match the testing style/framework already in use
+- Cover the happy path and key edge cases
+- For bug fixes, add a regression test that would have caught the bug
+- Keep tests focused and readable
+- Place test files according to project conventions
+
+After writing tests, run them to verify they pass.
+```
+
+**6. Verify all tests pass:**
+
+Run the full relevant test suite one final time:
+
+```bash
+# Run tests and capture exit code
+npm test  # or pytest, cargo test, go test, etc.
+```
+
+**If tests pass:** Update status and proceed to archiving
+**If tests fail:** Return to implementation to fix issues
+
+**Write testing results into the request file** (append after Implementation Summary):
+
+```markdown
+## Testing
+
+**Tests run:** [command used]
+**Result:** ✓ All tests passing (X tests)
+
+**New tests added:**
+- tests/new-feature.spec.ts - covers happy path and error cases
+
+**Existing tests verified:**
+- tests/related-feature.spec.ts - still passing
+
+*Verified by work action*
+```
+
+Or for failures that were resolved:
+
+```markdown
+## Testing
+
+**Initial run:** ✗ 2 tests failing
+**Issue:** Implementation didn't handle null case
+**Fix:** Added null check in handleSubmit()
+**Final run:** ✓ All tests passing (X tests)
+
+*Verified by work action*
+```
 
 ### Step 7: Archive and Continue
 
-**On success:**
+**[Orchestrator action - do this yourself, AFTER all agents complete]**
 
-1. Update request file frontmatter:
+**IMPORTANT: You must perform these file operations yourself. Do not skip them.**
+
+**On success - do ALL of these steps:**
+
+1. **Update the request file frontmatter** (in `do-work/working/`):
 ```yaml
 ---
 status: completed
@@ -440,7 +631,7 @@ route: B
 ---
 ```
 
-2. Append implementation summary to the request file:
+2. **Append implementation summary** to the request file (if not already present):
 ```markdown
 ## Implementation Summary
 
@@ -448,6 +639,18 @@ route: B
 
 *Completed by work action (Route [A/B/C])*
 ```
+
+3. **Create archive folder** if it doesn't exist:
+```bash
+mkdir -p do-work/archive
+```
+
+4. **Move the request file to archive**:
+```bash
+mv do-work/working/REQ-XXX-slug.md do-work/archive/
+```
+
+5. **If this REQ has a `context_ref`**: Check if all related REQs are now archived. If so, move the CONTEXT file to archive too.
 
 **Complete request file structure after archival:**
 
@@ -491,25 +694,30 @@ commit: a1b2c3d
 
 - Created src/components/NewFeature.tsx
 - Added tests in tests/new-feature.spec.ts
-- All tests passing
 
 *Completed by work action (Route B)*
+
+## Testing
+
+**Tests run:** npm test -- --testPathPattern="new-feature"
+**Result:** ✓ All tests passing (4 tests)
+
+**New tests added:**
+- tests/new-feature.spec.ts - covers rendering, click handler, edge cases
+
+*Verified by work action*
 ```
 
-For Route C requests, the Plan section appears between Triage and Exploration. For Route A, only Triage and Implementation Summary appear.
+For Route C requests, the Plan section appears between Triage and Exploration. For Route A, only Triage, Implementation Summary, and Testing appear.
 
 **Timestamps tell the story:**
 - `created_at` → `claimed_at`: How long request sat in queue
 - `claimed_at` → `completed_at`: How long implementation took
 - Route + timestamps: Compare complexity vs actual time spent
 
-3. Create `do-work/archive/` if it doesn't exist
-4. Move file from `do-work/working/` to `do-work/archive/`
-5. **If this REQ has a `context_ref`**: Check if all related REQs are now archived. If so, archive the CONTEXT file too.
+**On failure - do ALL of these steps:**
 
-**On failure:**
-
-1. Update frontmatter with error:
+1. **Update frontmatter with error** (in `do-work/working/`):
 ```yaml
 ---
 status: failed
@@ -519,10 +727,21 @@ error: "Brief description of what went wrong"
 ---
 ```
 
-2. Move file to `do-work/archive/` (failed items are also archived, status tells the story)
-3. Report the failure to the user
+2. **Create archive folder** if it doesn't exist:
+```bash
+mkdir -p do-work/archive
+```
+
+3. **Move the request file to archive** (failed items are also archived, status tells the story):
+```bash
+mv do-work/working/REQ-XXX-slug.md do-work/archive/
+```
+
+4. **Report the failure to the user**
 
 ### Step 8: Commit Changes (Git repos only)
+
+**[Orchestrator action - do this yourself]**
 
 If the project is Git-backed, create a **single commit** containing all changes made for this request. This provides a clean rollback/cherry-pick surface per request.
 
@@ -577,6 +796,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### Step 9: Loop or Exit
 
+**[Orchestrator action - do this yourself]**
+
 After archiving and committing:
 
 1. **Re-check** root `do-work/` folder for `REQ-*.md` files (fresh check, not cached list)
@@ -584,6 +805,37 @@ After archiving and committing:
 3. If empty: Report final summary and exit
 
 This fresh check on each loop means newly added requests get picked up automatically.
+
+---
+
+### Orchestrator Checklist (per request)
+
+Use this checklist to ensure you don't skip critical steps:
+
+```
+□ Step 1: List REQ-*.md files in do-work/, pick first one
+□ Step 2: mkdir -p do-work/working && mv do-work/REQ-XXX.md do-work/working/
+□ Step 2: Update frontmatter: status: claimed, claimed_at: <timestamp>
+□ Step 3: Read request, decide route (A/B/C), update frontmatter with route
+□ Step 3: Append ## Triage section to request file
+□ Step 4: (Route C only) Spawn Plan agent, append ## Plan section
+□ Step 5: (Routes B,C) Spawn Explore agent, append ## Exploration section
+□ Step 6: Spawn implementation agent
+□ Step 6.5: Run tests, append ## Testing section
+□ Step 7: Update frontmatter: status: completed, completed_at: <timestamp>
+□ Step 7: Append ## Implementation Summary section
+□ Step 7: mkdir -p do-work/archive && mv do-work/working/REQ-XXX.md do-work/archive/
+□ Step 8: git add -A && git commit (if git repo)
+□ Step 9: Check for more requests, loop or exit
+```
+
+**Common mistakes to avoid:**
+- Spawning implementation agent without first moving file to `working/`
+- Completing implementation without moving file to `archive/`
+- Forgetting to update status in frontmatter
+- Letting agents handle file management (they shouldn't)
+
+---
 
 ## Progress Reporting
 
@@ -595,12 +847,14 @@ Processing REQ-003-dark-mode.md...
   Planning...     [done]
   Exploring...    [done]
   Implementing... [done]
+  Testing...      [done] ✓ 12 tests passing
   Archiving...    [done]
   Committing...   [done] → abc1234
 
 Processing REQ-004-fix-typo.md...
   Triage: Simple (Route A)
   Implementing... [done]
+  Testing...      [done] ✓ 3 tests passing
   Archiving...    [done]
   Committing...   [done] → def5678
 
@@ -609,6 +863,7 @@ Found 1 more pending request. Continuing...
 Processing REQ-005-add-tooltip.md...
   Triage: Simple (Route A)
   Implementing... [done]
+  Testing...      [done] ✓ 2 tests passing
   Archiving...    [done]
   Committing...   [done] → ghi9012
 
@@ -625,6 +880,7 @@ Processing REQ-003-dark-mode.md...
   Planning...     [done]
   Exploring...    [done]
   Implementing... [done]
+  Testing...      [done] ✓ 8 tests passing
   Archiving...    [done]
   (not a git repo, skipping commit)
 
@@ -645,6 +901,12 @@ Completed.
 ### Implementation agent fails
 - Mark request as `failed`
 - Preserve any plan and exploration outputs in the request file for retry
+
+### Tests fail repeatedly
+- After 3 attempts to fix failing tests, mark request as `failed`
+- Include the test failure details in the error field
+- Preserve the implementation work done (it may be correct, tests may need adjustment)
+- Note in the request file what tests failed and why fixes didn't work
 
 ### Commit fails
 - Report the error to the user (usually pre-commit hook failure)
@@ -703,7 +965,10 @@ Implementation complete:
   - Created src/stores/theme-store.ts
   - Modified src/components/settings/SettingsPanel.tsx
   - Updated tailwind.config.js
-  - Tests passing
+
+Testing: Running related tests...
+  - Added tests/theme-store.spec.ts
+  - All 12 tests passing ✓
 
 Archived REQ-003-dark-mode.md
 Committed → abc1234
@@ -714,7 +979,10 @@ Triage: Simple (Route A) - bug fix with clear reproduction
 [Spawns implementation agent]
 Implementation complete:
   - Fixed null check in src/components/Form.tsx:42
-  - Added test case
+
+Testing: Running related tests...
+  - Added regression test in tests/form.spec.ts
+  - All 8 tests passing ✓
 
 Archived REQ-004-fix-submit-crash.md
 Committed → def5678
@@ -725,6 +993,8 @@ Triage: Simple (Route A) - config value change
 [Spawns implementation agent]
 Implementation complete:
   - Updated API_TIMEOUT in src/config.ts from 30000 to 60000
+
+Testing: No tests needed for config value change
 
 Archived REQ-005-change-timeout.md
 Committed → ghi9012
@@ -788,9 +1058,22 @@ Implement dark mode across the app.
 - Created src/stores/theme-store.ts
 - Modified 4 components for dark mode support
 - Updated tailwind.config.js
-- All tests passing
 
 *Completed by work action (Route C)*
+
+## Testing
+
+**Tests run:** npm test
+**Result:** ✓ All tests passing (24 tests)
+
+**New tests added:**
+- tests/stores/theme-store.spec.ts - store state and persistence
+- tests/components/ThemeToggle.spec.ts - toggle behavior
+
+**Existing tests verified:**
+- tests/components/SettingsPanel.spec.ts - updated for new toggle
+
+*Verified by work action*
 ```
 
 **REQ-005-change-timeout.md (Route A):**
@@ -824,6 +1107,13 @@ Update the API timeout from 30s to 60s.
 - Updated API_TIMEOUT in src/config.ts from 30000 to 60000
 
 *Completed by work action (Route A)*
+
+## Testing
+
+**Tests run:** N/A
+**Result:** Config value change, no tests needed
+
+*Verified by work action*
 ```
 
 This lets you:
