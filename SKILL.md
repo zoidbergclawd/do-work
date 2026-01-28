@@ -2,6 +2,7 @@
 name: do-work
 description: Task queue - add requests or process pending work
 argument-hint: run | task to capture
+upstream: https://raw.githubusercontent.com/bladnman/do-work/main/SKILL.md
 ---
 
 # Do-Work Skill
@@ -23,6 +24,7 @@ Examine what follows "do work":
 | Empty or bare invocation | `do work` | → Ask: "Start the work loop?" |
 | Action verbs only | `do work run`, `do work go`, `do work start` | → work |
 | Descriptive content | `do work add dark mode`, `do work [meeting notes]` | → do |
+| Version keywords | `do work version`, `do work update`, `do work check for updates` | → version |
 
 ### Step 2: Preserve Payload
 
@@ -78,3 +80,4 @@ This enables a two-phase commit pattern:
 Follow the detailed instructions in:
 - [do action](./actions/do.md) - Request capture
 - [work action](./actions/work.md) - Queue processing
+- [version action](./actions/version.md) - Version & updates

@@ -49,29 +49,46 @@ For complex requests, create a shared context document that preserves the FULL v
 ## Request File Location
 
 All request files go in the project's `do-work/` folder:
-- `do-work/` at the project root
-- Create the folder if it doesn't exist
-- `do-work/assets/` for screenshots and files (can be auto-copied from Claude's image cache)
+- `do-work/` at the project root (create if it doesn't exist)
+- `do-work/assets/` for ALL non-request files including:
+  - Screenshots and images
+  - Context documents (`CONTEXT-*.md`)
+  - Any other reference materials or attachments
+
+**CRITICAL: The do action only writes to two locations:**
+1. `do-work/` root - ONLY for `REQ-*.md` request files
+2. `do-work/assets/` - For EVERYTHING else (context docs, screenshots, etc.)
+
+**NEVER write to:**
+- `do-work/working/` - This is exclusively managed by the work action
+- `do-work/archive/` - This is exclusively managed by the work action
+- The project root directory - All do-work files stay within `do-work/`
 
 This folder name reflects the **do-work pattern** - requests created by the do action are processed by the work action.
 
 ## File Naming Convention
 
 **Request files:** `REQ-[number]-[slug].md`
-- `REQ-001-dark-mode.md`
-- `REQ-002-export-to-pdf.md`
+- Location: `do-work/` root (the queue)
+- Examples: `REQ-001-dark-mode.md`, `REQ-002-export-to-pdf.md`
 
 **Context documents (for complex requests):** `CONTEXT-[number]-[slug].md`
-- `CONTEXT-001-auth-system.md`
-- `CONTEXT-002-dashboard-redesign.md`
+- Location: `do-work/assets/` (NOT in root - they are reference materials, not queue items)
+- Examples: `do-work/assets/CONTEXT-001-auth-system.md`, `do-work/assets/CONTEXT-002-dashboard-redesign.md`
 
 **Context document lifecycle:**
-- Live in root `do-work/` as **reference documents** (not actionable work items)
-- Are **not** picked up by the work action (it only processes `REQ-*.md`)
-- Archive to `do-work/archive/` when **all related REQs** are complete
+- Created in `do-work/assets/` as **reference documents** (not actionable work items)
+- Are **not** picked up by the work action (it only processes `REQ-*.md` in the root)
+- The work action archives them to `do-work/archive/` when **all related REQs** are complete
 - The `requests` field in the context frontmatter tracks which REQs belong to it
 
-To get the next number, check existing `REQ-*.md` files in `do-work/`, `do-work/working/`, and `do-work/archive/`, then increment from the highest. Context documents use their own numbering sequence.
+**Screenshot and asset files:**
+- Location: `do-work/assets/`
+- Naming: `REQ-[num]-[descriptive-name].png` (or appropriate extension)
+- Examples: `do-work/assets/REQ-001-settings-panel.png`
+- These stay in `assets/` permanently - they are reference materials
+
+To get the next REQ number, check existing `REQ-*.md` files in `do-work/`, `do-work/working/`, and `do-work/archive/`, then increment from the highest. Context documents use their own numbering sequence.
 
 ## Request File Format
 
@@ -117,7 +134,7 @@ id: REQ-005
 title: OAuth login flow
 status: pending
 created_at: 2025-01-26T10:00:00Z
-context_ref: CONTEXT-001-auth-system.md
+context_ref: assets/CONTEXT-001-auth-system.md
 related: [REQ-006, REQ-007, REQ-008]
 batch: auth-system
 ---
@@ -161,7 +178,7 @@ DO NOT SUMMARIZE. Include everything the user said about this feature.]
 - What happens if user's email from OAuth doesn't match existing account?
 
 ## Full Context
-See [CONTEXT-001-auth-system.md](./CONTEXT-001-auth-system.md) for complete requirements discussion.
+See [assets/CONTEXT-001-auth-system.md](./assets/CONTEXT-001-auth-system.md) for complete requirements discussion.
 
 ---
 *Source: See context document for full verbatim input*
@@ -170,6 +187,8 @@ See [CONTEXT-001-auth-system.md](./CONTEXT-001-auth-system.md) for complete requ
 ### Context Document Format
 
 Created when processing complex requests. Preserves the FULL verbatim input.
+
+**Location:** `do-work/assets/CONTEXT-[number]-[slug].md`
 
 ```markdown
 ---
@@ -399,6 +418,9 @@ For each distinct request:
 For complex, multi-feature requests:
 
 **1. Create the Context Document first:**
+
+Write to `do-work/assets/CONTEXT-[number]-[slug].md`:
+
 ```yaml
 ---
 id: CONTEXT-001
@@ -409,6 +431,7 @@ word_count: [count words in original input]
 ---
 ```
 
+- Create in `do-work/assets/` folder (NOT in `do-work/` root)
 - Include a brief summary (2-3 sentences)
 - Leave the `requests` array empty initially
 - **Paste the FULL verbatim input** in the "Full Verbatim Input" section
@@ -469,7 +492,7 @@ id: REQ-012
 title: OAuth login flow
 status: pending
 created_at: 2025-01-26T14:30:00Z
-context_ref: CONTEXT-003-auth-system.md
+context_ref: assets/CONTEXT-003-auth-system.md
 related: [REQ-013, REQ-014, REQ-015]
 batch: auth-system
 ---
@@ -550,11 +573,11 @@ Claude: This is a complex request with multiple features. Creating context docum
 and individual requests...
 
 Created:
-- CONTEXT-001-auth-system.md (full verbatim input preserved, 1847 words)
-- REQ-010-oauth-login.md (references context, related to REQ-011,012,013)
-- REQ-011-user-profiles.md (references context, depends on REQ-010)
-- REQ-012-session-management.md (references context, blocks REQ-010)
-- REQ-013-password-reset.md (references context, alternative to REQ-010)
+- do-work/assets/CONTEXT-001-auth-system.md (full verbatim input preserved, 1847 words)
+- do-work/REQ-010-oauth-login.md (references context, related to REQ-011,012,013)
+- do-work/REQ-011-user-profiles.md (references context, depends on REQ-010)
+- do-work/REQ-012-session-management.md (references context, blocks REQ-010)
+- do-work/REQ-013-password-reset.md (references context, alternative to REQ-010)
 
 All requests reference the context document for full requirements.
 ```
@@ -575,12 +598,12 @@ Claude: [Detects: multiple components, specific requirements, responsive design
 constraints, interactive features → Complex mode]
 
 Created:
-- CONTEXT-002-dashboard.md (preserves full input)
-- REQ-014-dashboard-summary-cards.md
-- REQ-015-dashboard-trend-chart.md
-- REQ-016-dashboard-activity-feed.md
-- REQ-017-dashboard-date-picker.md
-- REQ-018-dashboard-responsive-layout.md
+- do-work/assets/CONTEXT-002-dashboard.md (preserves full input)
+- do-work/REQ-014-dashboard-summary-cards.md
+- do-work/REQ-015-dashboard-trend-chart.md
+- do-work/REQ-016-dashboard-activity-feed.md
+- do-work/REQ-017-dashboard-date-picker.md
+- do-work/REQ-018-dashboard-responsive-layout.md
 
 Each request includes full detailed requirements for that component.
 ```
