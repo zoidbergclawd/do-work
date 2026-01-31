@@ -139,27 +139,48 @@ Read the request file
 
 ```
 do-work/
-├── REQ-001-pending-task.md      # Pending (root = queue)
-├── REQ-002-another-task.md
-├── assets/                       # Screenshots, context docs, attachments
-│   ├── REQ-001-settings-panel.png
-│   └── CONTEXT-001-auth-system.md
-├── working/                      # Currently being processed
-│   └── REQ-003-in-progress.md
-└── archive/                      # Completed work + archived context docs
-    ├── REQ-000-finished-task.md
-    └── CONTEXT-001-auth-system.md  # Archived when all related REQs complete
+├── REQ-018-pending-task.md       # Pending (root = queue)
+├── REQ-019-another-task.md
+├── user-requests/                 # User Request folders (verbatim input + assets)
+│   ├── UR-003/
+│   │   ├── input.md              # Verbatim original input
+│   │   └── assets/
+│   │       └── REQ-017-screenshot.png
+│   └── UR-004/
+│       └── input.md
+├── assets/                        # Legacy assets (pre-UR system)
+│   └── CONTEXT-002-old-batch.md   # Legacy context docs
+├── working/                       # Currently being processed
+│   └── REQ-020-in-progress.md
+└── archive/                       # Completed work
+    ├── UR-001/                    # Archived as self-contained unit
+    │   ├── input.md
+    │   ├── REQ-013-feature.md
+    │   └── assets/
+    │       └── screenshot.png
+    ├── UR-002/
+    │   ├── input.md
+    │   ├── REQ-014-feature.md
+    │   └── REQ-015-feature.md
+    ├── REQ-010-legacy-task.md     # Legacy REQs (no UR) archive directly
+    └── CONTEXT-001-auth-system.md # Legacy context docs archive directly
 ```
 
 - **Root `do-work/`**: The queue - ONLY pending `REQ-*.md` files live here
+- **`user-requests/`**: UR folders with verbatim input and assets per user request
 - **`working/`**: File moves here when claimed, prevents double-processing
-- **`archive/`**: Completed (or failed) requests AND their related context documents
-- **`assets/`**: Screenshots, context documents, and attachments (referenced by requests)
+- **`archive/`**: Completed UR folders (self-contained units) AND legacy REQs/CONTEXT docs
+- **`assets/`**: Legacy screenshots and context documents (pre-UR system)
 
-**Context document lifecycle:**
-- Created in `do-work/assets/` by the do action
-- Referenced by REQ files via `context_ref: assets/CONTEXT-XXX.md`
-- Moved to `do-work/archive/` when ALL related REQs are complete (checked after each REQ archive)
+**User Request (UR) lifecycle:**
+- Created in `do-work/user-requests/` by the do action
+- Referenced by REQ files via `user_request: UR-NNN` frontmatter
+- When ALL related REQs are complete: UR folder moves from `user-requests/` to `archive/`, with completed REQ files pulled into the UR folder
+
+**Backward compatibility:**
+- REQs without `user_request` field (legacy) archive directly to `do-work/archive/` as before
+- REQs with `context_ref` (legacy) trigger CONTEXT doc archival when all related REQs complete
+- The `do-work/assets/` folder is only used for legacy items — new assets go into UR folders
 
 ## Request File Schema
 
@@ -172,6 +193,7 @@ id: REQ-001
 title: Short descriptive title
 status: pending
 created_at: 2025-01-26T10:00:00Z
+user_request: UR-001  # Links to originating user request (may be absent on legacy REQs)
 
 # Set by work action when claimed
 claimed_at: 2025-01-26T10:30:00Z
@@ -193,6 +215,7 @@ error: "Description of failure"  # Only if failed
 | `title` | do | Creation | Short title for the request |
 | `status` | Both | Throughout | Current state (see flow below) |
 | `created_at` | do | Creation | ISO timestamp when request was captured |
+| `user_request` | do | Creation | UR identifier linking to originating user request (absent on legacy REQs) |
 | `claimed_at` | work | Claim | ISO timestamp when work began |
 | `route` | work | Triage | Complexity route (A/B/C) |
 | `completed_at` | work | Completion | ISO timestamp when work finished |
@@ -688,22 +711,29 @@ route: B
 mkdir -p do-work/archive
 ```
 
-4. **Move the request file to archive**:
-```bash
-mv do-work/working/REQ-XXX-slug.md do-work/archive/
-```
+4. **Archive the request file** — behavior depends on whether the REQ has a UR:
 
-5. **Archive related context document if all REQs complete:**
+**If REQ has `user_request: UR-NNN` (new system):**
+   - Read the UR's `input.md` from `do-work/user-requests/UR-NNN/`
+   - Check its `requests` array (e.g., `[REQ-018, REQ-019, REQ-020]`)
+   - Check if ALL listed REQs are now completed (in `do-work/working/` with `status: completed` or already in `archive/`)
+   - If **all REQs complete**:
+     - Move the completed REQ file into the UR folder: `mv do-work/working/REQ-XXX.md do-work/user-requests/UR-NNN/`
+     - Move any other completed REQs from `do-work/archive/` that belong to this UR into the UR folder
+     - Move the entire UR folder to archive: `mv do-work/user-requests/UR-NNN do-work/archive/`
+   - If **not all REQs complete**:
+     - Move the REQ file directly to archive for now: `mv do-work/working/REQ-XXX.md do-work/archive/`
+     - The UR folder stays in `user-requests/` until the last REQ completes, which triggers the full UR archive
 
-If this REQ has a `context_ref` field (e.g., `context_ref: assets/CONTEXT-001-auth-system.md`):
-   - Read the context document from `do-work/assets/`
-   - Check its `requests` array (e.g., `[REQ-005, REQ-006, REQ-007]`)
-   - Check if ALL listed REQs are now in `do-work/archive/`
-   - If YES: Move the context document to archive:
-   ```bash
-   mv do-work/assets/CONTEXT-XXX-slug.md do-work/archive/
-   ```
-   - If NO: Leave context document in `assets/` (still has pending related REQs)
+**If REQ has `context_ref` (legacy system):**
+   - Move REQ to archive: `mv do-work/working/REQ-XXX.md do-work/archive/`
+   - Read the CONTEXT document from `do-work/assets/`
+   - Check its `requests` array
+   - If ALL listed REQs are now in `do-work/archive/`: move the CONTEXT doc to archive too
+   - If not: leave CONTEXT doc in `assets/`
+
+**If REQ has neither `user_request` nor `context_ref` (standalone legacy):**
+   - Move directly to archive: `mv do-work/working/REQ-XXX.md do-work/archive/`
 
 **Complete request file structure after archival:**
 
@@ -799,6 +829,7 @@ mkdir -p do-work/archive
 ```bash
 mv do-work/working/REQ-XXX-slug.md do-work/archive/
 ```
+Note: Failed REQs always go directly to `do-work/archive/`, NOT into UR folders. A failed REQ does not count as "complete" for UR archival purposes — the UR folder stays in `user-requests/` until all REQs succeed or the user explicitly archives.
 
 4. **Report the failure to the user**
 
@@ -887,8 +918,10 @@ Use this checklist to ensure you don't skip critical steps:
 □ Step 6.5: Run tests, append ## Testing section
 □ Step 7: Update frontmatter: status: completed, completed_at: <timestamp>
 □ Step 7: Append ## Implementation Summary section
-□ Step 7: mkdir -p do-work/archive && mv do-work/working/REQ-XXX.md do-work/archive/
-□ Step 7: If context_ref exists, check if all related REQs archived → move CONTEXT to archive/
+□ Step 7: Archive REQ (see UR vs legacy archival logic)
+□ Step 7: If user_request exists → check if all UR's REQs complete → move UR folder to archive/
+□ Step 7: If context_ref exists (legacy) → check if all related REQs archived → move CONTEXT to archive/
+□ Step 7: If neither → mv do-work/working/REQ-XXX.md do-work/archive/
 □ Step 8: git add -A && git commit (if git repo)
 □ Step 9: Check for more requests, loop or exit
 ```
@@ -899,7 +932,8 @@ Use this checklist to ensure you don't skip critical steps:
 - Forgetting to update status in frontmatter
 - Letting agents handle file management (they shouldn't)
 - Forgetting to document planning status for Routes A/B (write "Planning not required")
-- Forgetting to check/archive related context documents
+- Forgetting to check/archive related UR folders or legacy context documents
+- Archiving a UR folder before all its REQs are complete
 
 ---
 

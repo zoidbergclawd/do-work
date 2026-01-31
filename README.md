@@ -47,15 +47,24 @@ Each completed request gets archived with its implementation notes and a git com
 
 ```
 do-work/
-├── REQ-001-pending.md      # Queue (pending requests)
-├── REQ-002-pending.md
-├── working/                 # Currently being processed
-│   └── REQ-003-in-progress.md
-└── archive/                 # Completed work
-    └── REQ-000-done.md
+├── REQ-018-pending.md       # Queue (pending requests)
+├── REQ-019-pending.md
+├── user-requests/            # Verbatim input + assets per user request
+│   └── UR-003/
+│       ├── input.md          # Original user input (source of truth)
+│       └── assets/
+├── working/                  # Currently being processed
+│   └── REQ-020-in-progress.md
+└── archive/                  # Completed work (self-contained units)
+    ├── UR-001/               # UR folder with its completed REQs inside
+    │   ├── input.md
+    │   └── REQ-013-done.md
+    └── REQ-010-legacy.md     # Legacy REQs archive directly
 ```
 
-Requests move through the folders as they're processed. The archive preserves the full history: original request, triage decision, exploration notes, and implementation summary.
+Every `do` invocation creates a User Request (UR) folder preserving the verbatim input. REQ files in the queue reference their UR. When all REQs from a UR are completed, the UR folder moves to archive as a self-contained unit.
+
+Legacy REQs (created before the UR system) work the same as before — they archive directly without a UR folder.
 
 ## Designed for Claude Code
 
@@ -66,14 +75,14 @@ This skill is built for [Claude Code](https://github.com/anthropics/claude-code)
 
 It may work with other AI coding tools that support similar agent patterns.
 
-## The two actions
+## The three actions
 
 ### Do (capture)
 
 Invoked when you provide descriptive content. Optimized for speed:
 - Minimal questions - capture what was said, don't interrogate
 - Handles simple one-liners and complex multi-feature specs
-- For long inputs, creates a context document preserving the full verbatim text
+- Always creates a UR folder preserving the full verbatim input
 - Checks for duplicates against existing requests
 
 See [actions/do.md](./actions/do.md) for the full capture logic.
@@ -87,6 +96,16 @@ Invoked when you say "run", "go", "start", or just confirm the prompt. Runs the 
 - Creates atomic git commits per request
 
 See [actions/work.md](./actions/work.md) for the full processing logic.
+
+### Verify (evaluate)
+
+Invoked when you say "verify", "check", "evaluate", or "review requests". Quality gate:
+- Reads the original user input from the UR folder
+- Compares against extracted REQ files for completeness
+- Scores coverage, UX detail capture, intent signal preservation
+- Optionally fixes identified gaps
+
+See [actions/verify.md](./actions/verify.md) for the full evaluation logic.
 
 ## License
 

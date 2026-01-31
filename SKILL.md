@@ -12,6 +12,7 @@ A unified entry point for task capture and processing.
 **Actions:**
 - **do**: Capture new tasks/requests → writes to do-work/ folder
 - **work**: Process pending requests → executes the queue
+- **verify**: Evaluate captured REQs against original input → quality check
 
 ## Routing Decision
 
@@ -23,6 +24,7 @@ Examine what follows "do work":
 |---------|---------|-------|
 | Empty or bare invocation | `do work` | → Ask: "Start the work loop?" |
 | Action verbs only | `do work run`, `do work go`, `do work start` | → work |
+| Verify keywords | `do work verify`, `do work check`, `do work evaluate` | → verify |
 | Descriptive content | `do work add dark mode`, `do work [meeting notes]` | → do |
 | Version keywords | `do work version`, `do work update`, `do work check for updates` | → version |
 
@@ -41,6 +43,13 @@ If routing is unclear BUT content was provided:
 These signal "process the queue":
 run, go, start, begin, work, process, execute, build, continue, resume
 
+### Verify Verbs (→ Verify)
+
+These signal "check request quality":
+verify, check, evaluate, review requests, review reqs, audit
+
+Note: "check" routes to verify ONLY when used alone or with a target (e.g., "do work check UR-003"). When followed by descriptive content it routes to do (e.g., "do work check if the button works" → do).
+
 ### Content Signals (→ Do)
 
 These signal "add a new task":
@@ -56,10 +65,17 @@ These signal "add a new task":
 - `do work run` → Starts work action immediately
 - `do work go` → Starts work action immediately
 
+### Routes to Verify
+- `do work verify` → Evaluates most recent UR's REQs
+- `do work verify UR-003` → Evaluates specific UR
+- `do work check REQ-018` → Evaluates the UR that REQ-018 belongs to
+- `do work evaluate` → Evaluates most recent UR's REQs
+- `do work review requests` → Evaluates most recent UR's REQs
+
 ### Routes to Do
-- `do work add dark mode` → Creates REQ file
-- `do work the button is broken` → Creates REQ file
-- `do work [400 words]` → Creates REQ/CONTEXT files
+- `do work add dark mode` → Creates REQ file + UR folder
+- `do work the button is broken` → Creates REQ file + UR folder
+- `do work [400 words]` → Creates REQ files + UR folder with full verbatim input
 
 ## Payload Preservation Rules
 
@@ -80,4 +96,5 @@ This enables a two-phase commit pattern:
 Follow the detailed instructions in:
 - [do action](./actions/do.md) - Request capture
 - [work action](./actions/work.md) - Queue processing
+- [verify action](./actions/verify.md) - Quality evaluation of captured requests
 - [version action](./actions/version.md) - Version & updates

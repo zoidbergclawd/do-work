@@ -41,23 +41,25 @@ When splitting a 15-minute detailed spec into 5 requests, information gets lost:
 - Cross-feature requirements fall through cracks
 - The "why" behind decisions vanishes
 - Subtle constraints get summarized away
+- **User certainty level** — hedges like "I'm not trying to be prescriptive," "these are just ideas," "I don't know what that looks like" signal the builder has latitude. Hard statements like "must," "definitely," "never" signal firm requirements.
+- **Scope awareness cues** — when the user says things like "keep it simple" or "don't over-build," that's important builder guidance that gets dropped during extraction.
+- **Thinking evolution** — when users talk through options and land on a decision, note the final decision AND that they explored alternatives (the context doc has the full journey, but the REQ should flag that the user was exploratory here).
 
-**Solution: Context Documents**
+**Solution: User Request (UR) Documents**
 
-For complex requests, create a shared context document that preserves the FULL verbatim input, then have each request reference it.
+Every invocation of the do action creates a User Request (UR) folder that preserves the FULL verbatim input. For complex requests, individual REQ files reference back to their UR. For simple requests, the UR is minimal (just `input.md` with the original text), but the traceability is consistent.
 
 ## Request File Location
 
 All request files go in the project's `do-work/` folder:
 - `do-work/` at the project root (create if it doesn't exist)
-- `do-work/assets/` for ALL non-request files including:
-  - Screenshots and images
-  - Context documents (`CONTEXT-*.md`)
-  - Any other reference materials or attachments
+- `do-work/user-requests/UR-NNN/` for each user request invocation, containing:
+  - `input.md` — the verbatim original input (always created)
+  - `assets/` — screenshots, images, and other reference materials for this request
 
-**CRITICAL: The do action only writes to two locations:**
-1. `do-work/` root - ONLY for `REQ-*.md` request files
-2. `do-work/assets/` - For EVERYTHING else (context docs, screenshots, etc.)
+**CRITICAL: The do action writes to these locations:**
+1. `do-work/` root - ONLY for `REQ-*.md` request files (the queue)
+2. `do-work/user-requests/UR-NNN/` - For the verbatim input and assets per user request
 
 **NEVER write to:**
 - `do-work/working/` - This is exclusively managed by the work action
@@ -72,23 +74,32 @@ This folder name reflects the **do-work pattern** - requests created by the do a
 - Location: `do-work/` root (the queue)
 - Examples: `REQ-001-dark-mode.md`, `REQ-002-export-to-pdf.md`
 
-**Context documents (for complex requests):** `CONTEXT-[number]-[slug].md`
-- Location: `do-work/assets/` (NOT in root - they are reference materials, not queue items)
-- Examples: `do-work/assets/CONTEXT-001-auth-system.md`, `do-work/assets/CONTEXT-002-dashboard-redesign.md`
+**User Request (UR) folders:** `do-work/user-requests/UR-[number]/`
+- Created for EVERY do action invocation (simple or complex)
+- Contains `input.md` with the full verbatim user input
+- Contains `assets/` subfolder for screenshots and attachments specific to this request
+- Examples: `do-work/user-requests/UR-001/input.md`, `do-work/user-requests/UR-002/assets/screenshot.png`
 
-**Context document lifecycle:**
-- Created in `do-work/assets/` as **reference documents** (not actionable work items)
-- Are **not** picked up by the work action (it only processes `REQ-*.md` in the root)
-- The work action archives them to `do-work/archive/` when **all related REQs** are complete
-- The `requests` field in the context frontmatter tracks which REQs belong to it
+**UR folder lifecycle:**
+- Created in `do-work/user-requests/` by the do action
+- Referenced by REQ files via `user_request: UR-NNN` frontmatter field
+- The work action moves UR folders to `do-work/archive/UR-NNN/` when **all related REQs** are complete, pulling archived REQ files into the UR folder for self-contained units
 
 **Screenshot and asset files:**
-- Location: `do-work/assets/`
+- Location: `do-work/user-requests/UR-NNN/assets/`
 - Naming: `REQ-[num]-[descriptive-name].png` (or appropriate extension)
-- Examples: `do-work/assets/REQ-001-settings-panel.png`
-- These stay in `assets/` permanently - they are reference materials
+- Examples: `do-work/user-requests/UR-003/assets/REQ-017-toc-screenshot.png`
 
-To get the next REQ number, check existing `REQ-*.md` files in `do-work/`, `do-work/working/`, and `do-work/archive/`, then increment from the highest. Context documents use their own numbering sequence.
+To get the next REQ number, check existing `REQ-*.md` files in `do-work/`, `do-work/working/`, and `do-work/archive/` (and inside `archive/UR-*/`), then increment from the highest. UR folders use their own numbering sequence — check `do-work/user-requests/` and `do-work/archive/UR-*/` for the highest existing UR number.
+
+### Backward Compatibility
+
+REQ files created before the UR system will not have a `user_request` field, and their assets may live in `do-work/assets/` or reference `CONTEXT-*.md` files. This is fine — the work action handles both patterns:
+
+- **REQs without `user_request`**: Process and archive normally — move directly to `do-work/archive/` (not into a UR subfolder)
+- **REQs with `context_ref` pointing to `assets/CONTEXT-*.md`**: The work action archives the CONTEXT file alongside the REQ when all related REQs are complete (legacy behavior)
+- **Assets in `do-work/assets/`**: Left in place (legacy) — only new assets go into UR folders
+- **New REQs always get `user_request`**: Going forward, every REQ created by the do action includes a `user_request: UR-NNN` field
 
 ## Request File Format
 
@@ -102,6 +113,7 @@ id: REQ-001
 title: Brief descriptive title
 status: pending
 created_at: 2025-01-26T10:00:00Z
+user_request: UR-001
 ---
 
 # [Brief Title]
@@ -134,7 +146,7 @@ id: REQ-005
 title: OAuth login flow
 status: pending
 created_at: 2025-01-26T10:00:00Z
-context_ref: assets/CONTEXT-001-auth-system.md
+user_request: UR-001
 related: [REQ-006, REQ-007, REQ-008]
 batch: auth-system
 ---
@@ -171,6 +183,13 @@ DO NOT SUMMARIZE. Include everything the user said about this feature.]
 - Depends on: REQ-007 (session management) - needs session system first
 - Blocks: REQ-006 (user profile) - profile needs auth to exist
 
+## Builder Guidance
+[Capture the user's tone/intent signals that affect HOW to build, not WHAT to build]
+
+- Certainty level: Exploratory / Firm / Mixed
+- Scope cues: [Any "keep it simple," "don't over-build," "just ideas" signals]
+- [Any specific latitude given to the builder]
+
 ## Open Questions
 [Ambiguities that the builder should clarify or decide]
 
@@ -178,21 +197,21 @@ DO NOT SUMMARIZE. Include everything the user said about this feature.]
 - What happens if user's email from OAuth doesn't match existing account?
 
 ## Full Context
-See [assets/CONTEXT-001-auth-system.md](./assets/CONTEXT-001-auth-system.md) for complete requirements discussion.
+See [user-requests/UR-001/input.md](./user-requests/UR-001/input.md) for complete verbatim input.
 
 ---
-*Source: See context document for full verbatim input*
+*Source: See UR-001/input.md for full verbatim input*
 ```
 
-### Context Document Format
+### User Request (UR) input.md Format
 
-Created when processing complex requests. Preserves the FULL verbatim input.
+Created for EVERY do action invocation. Preserves the FULL verbatim input.
 
-**Location:** `do-work/assets/CONTEXT-[number]-[slug].md`
+**Location:** `do-work/user-requests/UR-[number]/input.md`
 
 ```markdown
 ---
-id: CONTEXT-001
+id: UR-001
 title: Authentication System Requirements
 created_at: 2025-01-26T10:00:00Z
 requests: [REQ-005, REQ-006, REQ-007, REQ-008]
@@ -202,7 +221,7 @@ word_count: 1847
 # Authentication System Requirements
 
 ## Summary
-[2-3 sentence overview of what this context covers]
+[2-3 sentence overview of what this user request covers]
 
 User described a complete authentication system including OAuth login, user profiles,
 session management, and password reset flows. Emphasized security requirements and
@@ -216,6 +235,12 @@ integration with existing systems.
 | REQ-006 | User profile management | Profile editing, avatar upload |
 | REQ-007 | Session management | Token storage, expiration, refresh |
 | REQ-008 | Password reset flow | Email-based reset with expiry |
+
+## Batch Constraints
+[Cross-cutting concerns that apply to all REQs in this batch — omit for simple single-REQ requests]
+
+- [Shared design principles, sequencing requirements, performance budgets]
+- [User tone signals: "keep it simple," scope cues, latitude given]
 
 ## Full Verbatim Input
 
@@ -232,9 +257,30 @@ request files.]
 *Captured: 2025-01-26T10:00:00Z*
 ```
 
+**For simple requests**, the input.md is minimal:
+
+```markdown
+---
+id: UR-005
+title: Add keyboard shortcuts
+created_at: 2025-01-26T10:00:00Z
+requests: [REQ-020]
+word_count: 4
+---
+
+# Add keyboard shortcuts
+
+## Full Verbatim Input
+
+add keyboard shortcuts
+
+---
+*Captured: 2025-01-26T10:00:00Z*
+```
+
 ### Frontmatter Fields
 
-**Simple requests:**
+**All requests:**
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -242,26 +288,28 @@ request files.]
 | `title` | Yes | Short title |
 | `status` | Yes | Always `pending` when created |
 | `created_at` | Yes | ISO 8601 timestamp |
+| `user_request` | Yes | UR identifier linking back to the originating user request (UR-NNN) |
 
 **Complex requests (additional fields):**
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `context_ref` | Yes | Filename of the context document |
 | `related` | If applicable | Array of related REQ IDs |
 | `batch` | If applicable | Batch name grouping related requests |
 
-**Context documents:**
+**UR input.md documents:**
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Context identifier (CONTEXT-NNN) |
-| `title` | Yes | Descriptive title for the batch |
+| `id` | Yes | User request identifier (UR-NNN) |
+| `title` | Yes | Descriptive title for the request or batch |
 | `created_at` | Yes | ISO 8601 timestamp |
-| `requests` | Yes | Array of REQ IDs extracted from this context |
+| `requests` | Yes | Array of REQ IDs extracted from this user request |
 | `word_count` | Yes | Word count of original input (for reference) |
 
 The work action adds additional fields (`claimed_at`, `route`, `completed_at`) as it processes each request.
+
+**Note:** Legacy REQ files may have `context_ref` instead of `user_request`. The work action handles both.
 
 ## Workflow
 
@@ -363,8 +411,8 @@ If the user passes a screenshot:
 
 1. **Find the cached image**: List `~/.claude/image-cache/` to find recent session folders, then check for `.png` files inside
 2. **Verify it's the right image**: Use the Read tool on the `.png` file to visually confirm it matches what the user shared
-3. **Copy to project assets**: `cp ~/.claude/image-cache/[uuid]/[n].png do-work/assets/REQ-[num]-[slug].png`
-4. **Reference in request file**: Point to `do-work/assets/REQ-[num]-[slug].png` in the Assets section
+3. **Copy to UR assets**: `cp ~/.claude/image-cache/[uuid]/[n].png do-work/user-requests/UR-[num]/assets/REQ-[num]-[slug].png`
+4. **Reference in request file**: Point to `do-work/user-requests/UR-[num]/assets/REQ-[num]-[slug].png` in the Assets section
 5. **Still write a description**: Even with the file saved, include a thorough text description for searchability and context
 
 **Finding the right image:**
@@ -377,7 +425,7 @@ find ~/.claude/image-cache -name "*.png" -exec ls -la {} \;
 
 **Fallback** if cache is empty or images can't be found:
 - Write a detailed description as the primary record
-- User can manually save to `do-work/assets/` if needed
+- User can manually save to `do-work/user-requests/UR-NNN/assets/` if needed
 
 When describing screenshots, be thorough - this is the primary record:
 - **What it shows**: UI state, screen area, dialog, error message, etc.
@@ -406,24 +454,30 @@ Screenshot of settings with a dropdown.
 
 #### Simple Mode
 
-For each distinct request:
-1. Determine the next REQ number (check `do-work/`, `working/`, and `archive/` for highest existing number)
-2. Create a slug from the request (lowercase, hyphens, 3-4 words max)
-3. Generate the current ISO 8601 timestamp for `created_at`
-4. Write the file using the **simple request format**
-5. Keep the original verbatim request in the Source field
+1. Determine the next UR number (check `do-work/user-requests/` and `do-work/archive/UR-*/` for highest existing number)
+2. Create `do-work/user-requests/UR-NNN/input.md` with the verbatim user input (minimal format)
+3. For each distinct request:
+   a. Determine the next REQ number (check `do-work/`, `working/`, and `archive/` for highest existing number)
+   b. Create a slug from the request (lowercase, hyphens, 3-4 words max)
+   c. Generate the current ISO 8601 timestamp for `created_at`
+   d. Write the file using the **simple request format** (include `user_request: UR-NNN`)
+   e. Keep the original verbatim request in the Source field
+4. Update the UR's `requests` array with all created REQ IDs
 
 #### Complex Mode
 
 For complex, multi-feature requests:
 
-**1. Create the Context Document first:**
+**1. Create the User Request (UR) folder first:**
 
-Write to `do-work/assets/CONTEXT-[number]-[slug].md`:
+1. Determine the next UR number (check `do-work/user-requests/` and `do-work/archive/UR-*/`)
+2. Create `do-work/user-requests/UR-NNN/`
+3. Create `do-work/user-requests/UR-NNN/assets/` (for screenshots/attachments)
+4. Write `do-work/user-requests/UR-NNN/input.md`:
 
 ```yaml
 ---
-id: CONTEXT-001
+id: UR-001
 title: [Descriptive name for this batch]
 created_at: 2025-01-26T10:00:00Z
 requests: []  # Will fill in after creating requests
@@ -431,7 +485,6 @@ word_count: [count words in original input]
 ---
 ```
 
-- Create in `do-work/assets/` folder (NOT in `do-work/` root)
 - Include a brief summary (2-3 sentences)
 - Leave the `requests` array empty initially
 - **Paste the FULL verbatim input** in the "Full Verbatim Input" section
@@ -448,7 +501,7 @@ word_count: [count words in original input]
 For EACH identified feature:
 1. Determine the next REQ number
 2. Create using the **complex request format**
-3. Set `context_ref` to the context document filename
+3. Set `user_request` to the UR identifier (e.g., `UR-001`)
 4. Set `related` to other REQ IDs in this batch
 5. Set `batch` to a short name for this group
 
@@ -462,13 +515,22 @@ This is where lossiness happens. For each request:
 - Include "must", "should", "never" statements
 - If something might apply, include it (let builder filter)
 
-**4. Update the Context Document:**
+**4. Update the UR input.md:**
 - Go back and fill in the `requests` array with all created REQ IDs
 - Update the "Extracted Requests" table
+
+**4.5. Identify Batch-Level Concerns:**
+- After creating all REQs, identify any requirements that apply to the BATCH as a whole, not individual REQs
+- Add these to the UR's input.md as a "Batch Constraints" section
+- Examples: sequencing ("make sure everything's stable first"), shared design principles, performance budgets, user tone signals ("keep it simple," "don't over-engineer")
+- These should also appear in each relevant REQ's Constraints section so builders see them without needing to read the context doc
 
 **5. Verify completeness:**
 - Re-read the original input
 - Check that every requirement appears in at least one request file
+- Check that every REQ captures relevant UX/interaction details (e.g., "auto-scroll to current file," "collapse on click," "highlight active item" type behaviors) — these are easy to drop
+- Check that cross-cutting/batch concerns from step 4.5 appear in every relevant REQ's Constraints section
+- Check that the user's intent signals are preserved — not just the WHAT, but the HOW-FIRMLY (exploratory vs firm, latitude given, scope cues)
 - If something doesn't fit any request, either:
   - Create another request for it, OR
   - Add it to the most relevant request's "Context" section
@@ -482,6 +544,7 @@ id: REQ-004
 title: Add keyboard shortcuts
 status: pending
 created_at: 2025-01-26T14:30:00Z
+user_request: UR-003
 ---
 ```
 
@@ -492,7 +555,7 @@ id: REQ-012
 title: OAuth login flow
 status: pending
 created_at: 2025-01-26T14:30:00Z
-context_ref: assets/CONTEXT-003-auth-system.md
+user_request: UR-005
 related: [REQ-013, REQ-014, REQ-015]
 batch: auth-system
 ---
@@ -545,8 +608,10 @@ Is this:
 ```
 User: do work when I click here [screenshot] nothing happens
 
-Claude: Created REQ-008-button-click-fix.md
-Screenshot saved to do-work/assets/REQ-008-button-click-fix.png
+Claude: Created:
+- do-work/user-requests/UR-004/input.md (verbatim input)
+- do-work/user-requests/UR-004/assets/REQ-008-button-click-fix.png
+- do-work/REQ-008-button-click-fix.md
 ```
 
 (Request file includes path to saved screenshot plus detailed description)
@@ -569,17 +634,17 @@ User: do work [15 minutes of detailed requirements about an authentication syste
 including OAuth, user profiles, session management, password reset,
 security requirements, migration from old system, etc.]
 
-Claude: This is a complex request with multiple features. Creating context document
+Claude: This is a complex request with multiple features. Creating UR folder
 and individual requests...
 
 Created:
-- do-work/assets/CONTEXT-001-auth-system.md (full verbatim input preserved, 1847 words)
-- do-work/REQ-010-oauth-login.md (references context, related to REQ-011,012,013)
-- do-work/REQ-011-user-profiles.md (references context, depends on REQ-010)
-- do-work/REQ-012-session-management.md (references context, blocks REQ-010)
-- do-work/REQ-013-password-reset.md (references context, alternative to REQ-010)
+- do-work/user-requests/UR-001/input.md (full verbatim input preserved, 1847 words)
+- do-work/REQ-010-oauth-login.md (user_request: UR-001, related to REQ-011,012,013)
+- do-work/REQ-011-user-profiles.md (user_request: UR-001, depends on REQ-010)
+- do-work/REQ-012-session-management.md (user_request: UR-001, blocks REQ-010)
+- do-work/REQ-013-password-reset.md (user_request: UR-001, alternative to REQ-010)
 
-All requests reference the context document for full requirements.
+All requests reference UR-001 for full requirements.
 ```
 
 ### Example 7: Detecting Complexity
@@ -598,14 +663,14 @@ Claude: [Detects: multiple components, specific requirements, responsive design
 constraints, interactive features → Complex mode]
 
 Created:
-- do-work/assets/CONTEXT-002-dashboard.md (preserves full input)
-- do-work/REQ-014-dashboard-summary-cards.md
-- do-work/REQ-015-dashboard-trend-chart.md
-- do-work/REQ-016-dashboard-activity-feed.md
-- do-work/REQ-017-dashboard-date-picker.md
-- do-work/REQ-018-dashboard-responsive-layout.md
+- do-work/user-requests/UR-002/input.md (preserves full input)
+- do-work/REQ-014-dashboard-summary-cards.md (user_request: UR-002)
+- do-work/REQ-015-dashboard-trend-chart.md (user_request: UR-002)
+- do-work/REQ-016-dashboard-activity-feed.md (user_request: UR-002)
+- do-work/REQ-017-dashboard-date-picker.md (user_request: UR-002)
+- do-work/REQ-018-dashboard-responsive-layout.md (user_request: UR-002)
 
-Each request includes full detailed requirements for that component.
+Each request includes full detailed requirements and references UR-002.
 ```
 
 ## What NOT To Do
@@ -619,7 +684,7 @@ Each request includes full detailed requirements for that component.
 
 **For complex requests specifically:**
 - **Don't summarize detailed requirements** - preserve the user's exact words
-- **Don't skip the context document** - it's the source of truth
+- **Don't skip the UR input.md** - it's the source of truth
 - **Don't drop edge cases or constraints** - if the user mentioned it, capture it
 - **Don't assume something is obvious** - write it down explicitly
 - **Don't split related requirements** across unrelated requests - keep context together
@@ -634,7 +699,7 @@ Create the request anyway with what they said. The building agent or a follow-up
 Include that context in the request file.
 
 **User gives a very long, detailed request:**
-Switch to complex mode. Create a context document with the full verbatim input. Split into multiple requests, each referencing the context.
+Switch to complex mode. Create a UR folder with the full verbatim input in input.md. Split into multiple requests, each referencing the UR.
 
 **Request seems impossible or contradictory:**
 Not your call. Capture it. The building agent will figure it out or ask. For complex requests, note contradictions in the "Open Questions" section.
@@ -643,7 +708,7 @@ Not your call. Capture it. The building agent will figure it out or ask. For com
 Include it in ALL relevant request files. Duplication is better than losing it.
 
 **User changes their mind mid-request:**
-Capture the final decision, but note the evolution in the context document. The builder might need to understand why.
+Capture the final decision, but note the evolution in the UR's input.md. The builder might need to understand why.
 
 **Features have circular dependencies:**
 Note the dependencies in both request files. The builder will work out the sequencing.
