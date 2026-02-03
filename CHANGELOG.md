@@ -4,6 +4,17 @@ What's new, what's better, what's different. Most recent stuff on top.
 
 ---
 
+## 0.8.0 — The Clarity Pass
+
+The UR system was hiding in plain sight — documented everywhere but easy to miss if you weren't reading carefully. This release restructures the do action and skill definition so the UR + REQ pairing is unmissable, even for agents that skim. Also added agent compatibility guidance to CLAUDE.md so future edits keep the skill portable across platforms.
+
+- Added "Required Outputs" section to top of do.md — UR + REQ pairing stated upfront as mandatory
+- Restructured Step 5 Simple Mode — UR creation now has equal weight with REQ creation
+- Added Do Action Checklist at end of workflow — mirrors the work action's orchestrator checklist
+- Moved UR anti-patterns to general "What NOT To Do" section (was under complex-only)
+- Updated SKILL.md with core concept callout about UR + REQ pairing
+- Added Agent Compatibility section to CLAUDE.md — generalized language, standalone-prompt design, floor-not-ceiling
+
 ## 0.7.0 — The Nudge
 
 Complex requests now get a gentle suggestion to run `/do-work verify` after capture. If your input had lots of features, nuanced constraints, or multiple REQs, the system lets you know verification is available — so you can catch dropped details before building starts. Simple requests stay clean and quiet.

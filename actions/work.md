@@ -46,6 +46,10 @@ work action (orchestrator - lightweight, stays in loop)
 
 The orchestrator stays lightweight - it triages requests and only spawns the agents actually needed.
 
+## Sub-agent Compatibility
+
+This document uses "spawn agent" language. Use your platform's subagent or multi-agent mechanism when available. If your tool does not support subagents, run the phases sequentially in the same session and clearly label outputs as Plan, Explore, and Implementation summaries.
+
 ## Complexity Triage
 
 Before spawning any agents, quickly assess the request to determine the right route.
@@ -133,7 +137,7 @@ Read the request file
          Builder can request planning if needed
 ```
 
-**When uncertain, prefer Route B.** The builder agent can spawn a Plan agent itself if it determines one is needed. Under-planning is recoverable; over-planning is wasted time.
+**When uncertain, prefer Route B.** The implementation agent (or single-agent flow) can still switch into a planning phase if it determines one is needed. Under-planning is recoverable; over-planning is wasted time.
 
 ## Folder Structure
 
@@ -457,7 +461,7 @@ You are implementing this request:
 
 ## Instructions
 
-Implement this change. You have full access to Edit, Write, Bash, and can spawn Explore or Plan agents if you discover you need more context.
+Implement this change. You have full access to edit files and run shell commands, and can use Explore or Plan phases if you discover you need more context.
 
 Key guidelines:
 - This was triaged as a simple request - aim for a focused, minimal change
@@ -488,7 +492,7 @@ You are implementing this request:
 
 ## Instructions
 
-Implement the changes using the patterns and locations identified above. You have full access to Edit, Write, and Bash tools.
+Implement the changes using the patterns and locations identified above. You have full access to edit files and run shell commands.
 
 Key guidelines:
 - Follow existing code patterns identified in the codebase context
@@ -522,7 +526,7 @@ You are implementing this request:
 
 ## Instructions
 
-Implement the changes according to the plan. You have full access to Edit, Write, and Bash tools.
+Implement the changes according to the plan. You have full access to edit files and run shell commands.
 
 Key guidelines:
 - Follow existing code patterns identified in the codebase context
@@ -863,7 +867,7 @@ Implements: do-work/archive/REQ-003-dark-mode.md
 - Modified src/components/settings/SettingsPanel.tsx
 - Updated tailwind.config.js
 
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-Authored-By: Assistant <noreply@your-tool>
 EOF
 )"
 ```
@@ -876,8 +880,10 @@ Implements: do-work/archive/{filename}
 
 {implementation summary as bullet points}
 
-Co-Authored-By: Claude <noreply@anthropic.com>
+Co-Authored-By: Assistant <noreply@your-tool>
 ```
+
+If your platform standardizes co-author lines, use its preferred identity. For Claude Code, use `Claude <noreply@anthropic.com>`. If your tool does not use co-author lines, omit the line.
 
 **Important commit rules:**
 - **ONE commit per request** - do not analyze files individually or create multiple commits
@@ -1049,7 +1055,7 @@ Show what would be processed and their triage routes without making changes.
 ```
 User: do work
 
-Claude: Checking do-work/ folder...
+Assistant: Checking do-work/ folder...
 Found 3 pending requests. Starting with REQ-003-dark-mode.md...
 Triage: Complex (Route C) - new feature across multiple components
 

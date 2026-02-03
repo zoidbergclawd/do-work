@@ -1,6 +1,6 @@
 # do-work
 
-A task queue skill for Claude Code. Capture requests fast, process them later.
+A task queue skill for agentic coding tools. Capture requests fast, process them later.
 
 ## Installation
 
@@ -12,9 +12,9 @@ npx add-skill bladnman/do-work
 
 This skill gives you a two-phase workflow:
 
-1. **Capture**: Throw ideas, bugs, and feature requests at Claude as they come up. Each one becomes a structured request file in `do-work/`.
+1. **Capture**: Throw ideas, bugs, and feature requests at your assistant as they come up. Each one becomes a structured request file in `do-work/`.
 
-2. **Process**: When you're ready, tell Claude to work. It picks up pending requests one by one, triages complexity, and builds until the queue is empty.
+2. **Process**: When you're ready, tell the assistant to work. It picks up pending requests one by one, triages complexity, and builds until the queue is empty.
 
 The idea: separate *thinking of things* from *doing things*. Capture is instant. Processing is thorough.
 
@@ -36,7 +36,7 @@ Creates three separate request files.
 ```
 do work run
 ```
-Starts the work loop. Claude triages each request by complexity:
+Starts the work loop. The assistant triages each request by complexity:
 - **Simple** (config changes, small fixes) → straight to implementation
 - **Medium** (clear goal, unknown location) → explore codebase first
 - **Complex** (new features, architectural) → plan, explore, then build
@@ -66,14 +66,14 @@ Every `do` invocation creates a User Request (UR) folder preserving the verbatim
 
 Legacy REQs (created before the UR system) work the same as before — they archive directly without a UR folder.
 
-## Designed for Claude Code
+## Designed for Agentic Coding Tools
 
-This skill is built for [Claude Code](https://github.com/anthropics/claude-code), which has:
-- Sub-agent spawning (Plan, Explore, general-purpose builders)
-- File editing and bash access
-- Git integration for per-request commits
+This skill assumes your tool supports:
+- File editing and shell access
+- Optional subagent or multi-agent workflows (Plan, Explore, Build)
+- Git integration for per-request commits (optional)
 
-It may work with other AI coding tools that support similar agent patterns.
+It was originally written for Claude Code and should work with other tools that provide similar capabilities. If your tool does not support subagents, run the Plan, Explore, and Implementation phases sequentially in the same session.
 
 ## The three actions
 

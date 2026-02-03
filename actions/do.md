@@ -4,6 +4,19 @@
 
 A fast-capture system for turning quick ideas into structured request files. Designed for speed - minimal interaction when intent is clear, human-in-the-loop only when genuinely ambiguous.
 
+## Required Outputs
+
+Every invocation of the do action produces exactly two things:
+
+1. **A User Request (UR) folder** at `do-work/user-requests/UR-NNN/` containing an `input.md` with the full verbatim user input
+2. **One or more REQ files** at `do-work/REQ-NNN-slug.md`, each linked to the UR via `user_request: UR-NNN` in frontmatter
+
+Both are mandatory. Never create one without the other. This applies to every invocation — simple or complex, one REQ or ten.
+
+- A REQ without a `user_request` field is orphaned — there is no source of truth to verify against
+- A UR without REQ files is pointless — nothing gets queued for the work action
+- The verify action depends on this linkage to evaluate capture quality
+
 ## Philosophy
 
 - **Speed over perfection**: This is a rapid capture interface, not a design review
@@ -381,7 +394,7 @@ Read all files in `do-work/` folder, **and list filenames in `do-work/working/` 
 
 **If the match is in the queue (`do-work/` root):**
 - If clearly the same thing: Tell user, don't create new file
-- If similar but potentially different: Use AskUserQuestion to clarify
+- If similar but potentially different: Use your environment's ask-user prompt/tool to clarify
 - If enhancement: Ask if they want to update the existing request
 
 **Updating a queued request (addendum, not rewrite):**
@@ -438,7 +451,7 @@ Key rules for addendum REQs:
 
 ### Step 3: Clarify Only If Needed
 
-Use AskUserQuestion ONLY when:
+Use your environment's ask-user prompt/tool ONLY when:
 - Request is genuinely ambiguous (could mean two very different things)
 - Similar request exists and it's unclear if this is new or a revision
 - User's intent could conflict with existing requests
@@ -447,6 +460,8 @@ Use AskUserQuestion ONLY when:
 - You can reasonably infer the intent
 - The request is simple and clear
 - Technical implementation is unclear (that's for the building agent)
+
+If your tool supports a structured question UI (e.g., multiple-choice), use it; otherwise ask a plain-text question.
 
 Example good question:
 ```
@@ -467,17 +482,17 @@ You want dark mode. Should it:
 
 ### Step 4: Handle Screenshots
 
-**Image Cache Discovery**: Claude Code caches images shared in conversation at `~/.claude/image-cache/[session-uuid]/[number].png`. You can read these with the Read tool and copy them to project folders.
+**Image Cache Discovery (platform-specific)**: If your environment exposes a local cache for images, use it. Example: Claude Code caches images shared in conversation at `~/.claude/image-cache/[session-uuid]/[number].png`. Use your tool's attachment APIs or cache paths when available.
 
 If the user passes a screenshot:
 
-1. **Find the cached image**: List `~/.claude/image-cache/` to find recent session folders, then check for `.png` files inside
-2. **Verify it's the right image**: Use the Read tool on the `.png` file to visually confirm it matches what the user shared
+1. **Find the cached/attached image**: Use your tool's attachment UI or image cache (Claude Code path above). If you have a direct file path from the tool, use that.
+2. **Verify it's the right image**: Use your tool's image viewing capability on the `.png` file to confirm it matches what the user shared
 3. **Copy to UR assets**: `cp ~/.claude/image-cache/[uuid]/[n].png do-work/user-requests/UR-[num]/assets/REQ-[num]-[slug].png`
 4. **Reference in request file**: Point to `do-work/user-requests/UR-[num]/assets/REQ-[num]-[slug].png` in the Assets section
 5. **Still write a description**: Even with the file saved, include a thorough text description for searchability and context
 
-**Finding the right image:**
+**Finding the right image (Claude Code example):**
 ```bash
 # List recent image cache sessions
 find ~/.claude/image-cache -name "*.png" -exec ls -la {} \;
@@ -487,7 +502,7 @@ find ~/.claude/image-cache -name "*.png" -exec ls -la {} \;
 
 **Fallback** if cache is empty or images can't be found:
 - Write a detailed description as the primary record
-- User can manually save to `do-work/user-requests/UR-NNN/assets/` if needed
+- Ask the user to provide a file path or save the image to `do-work/user-requests/UR-NNN/assets/` if needed
 
 When describing screenshots, be thorough - this is the primary record:
 - **What it shows**: UI state, screen area, dialog, error message, etc.
@@ -516,15 +531,22 @@ Screenshot of settings with a dropdown.
 
 #### Simple Mode
 
-1. Determine the next UR number (check `do-work/user-requests/` and `do-work/archive/UR-*/` for highest existing number)
-2. Create `do-work/user-requests/UR-NNN/input.md` with the verbatim user input (minimal format)
-3. For each distinct request:
+**1. Create the User Request (UR) folder:**
+   a. Determine the next UR number (check `do-work/user-requests/` and `do-work/archive/UR-*/` for highest existing number)
+   b. Create `do-work/user-requests/UR-NNN/input.md` with the verbatim user input (minimal format — see UR input.md Format above)
+   c. Leave the `requests` array empty initially — you will fill it in step 3
+
+**2. Create REQ files** (one per distinct request):
    a. Determine the next REQ number (check `do-work/`, `working/`, and `archive/` for highest existing number)
    b. Create a slug from the request (lowercase, hyphens, 3-4 words max)
    c. Generate the current ISO 8601 timestamp for `created_at`
-   d. Write the file using the **simple request format** (include `user_request: UR-NNN`)
-   e. Keep the original verbatim request in the Source field
-4. Update the UR's `requests` array with all created REQ IDs
+   d. Write the file using the **simple request format**
+   e. **Set `user_request: UR-NNN`** in frontmatter — this links the REQ back to its UR
+   f. Keep the original verbatim request in the Source field
+
+**3. Link them together:**
+   a. Update the UR's `requests` array with all created REQ IDs
+   b. Verify every REQ file has `user_request: UR-NNN` in its frontmatter
 
 #### Complex Mode
 
@@ -651,6 +673,29 @@ When the threshold is met, add a brief line after the file summary:
 
 The goal is a gentle nudge, not a gate. One sentence, no pressure. If the user ignores it, that's fine.
 
+### Do Action Checklist
+
+Use this to verify you haven't skipped a step:
+
+```
+□ Parse input — single vs multiple requests (Step 1)
+□ Assess complexity — simple or complex mode (Step 1.5)
+□ Check for existing requests — duplicates, addendums (Step 2)
+□ Clarify only if genuinely ambiguous (Step 3)
+□ Handle screenshots if present (Step 4)
+□ Create UR folder with input.md (Step 5)
+□ Create REQ file(s) with user_request: UR-NNN in frontmatter (Step 5)
+□ Update UR requests array with all REQ IDs (Step 5)
+□ Report created files to user (Step 6)
+□ Suggest verify if complex (Step 6)
+```
+
+**Common mistakes:**
+- Creating REQ files but forgetting the UR folder
+- Creating the UR folder but not setting `user_request` in REQ frontmatter
+- Skipping the UR for simple requests (it's required for ALL requests)
+- Not updating the UR's `requests` array after creating REQs
+
 ## Examples
 
 ### Example 1: Simple Single Request
@@ -658,7 +703,7 @@ The goal is a gentle nudge, not a gate. One sentence, no pressure. If the user i
 ```
 User: do work add keyboard shortcuts
 
-Claude: Created REQ-004-keyboard-shortcuts.md
+Assistant: Created REQ-004-keyboard-shortcuts.md
 ```
 
 ### Example 2: Multiple Requests
@@ -666,7 +711,7 @@ Claude: Created REQ-004-keyboard-shortcuts.md
 ```
 User: do work add dark mode, also the search feels slow, and we need an export button
 
-Claude: Created:
+Assistant: Created:
 - REQ-005-dark-mode.md
 - REQ-006-search-performance.md
 - REQ-007-export-button.md
@@ -677,7 +722,7 @@ Claude: Created:
 ```
 User: do work fix the lag when typing
 
-Claude: [Uses AskUserQuestion]
+Assistant: [Uses ask-user prompt/tool]
 I found an existing request REQ-006 about search performance that mentions typing lag.
 Is this:
 - The same issue (I'll note you reported it again)
@@ -689,7 +734,7 @@ Is this:
 ```
 User: do work when I click here [screenshot] nothing happens
 
-Claude: Created:
+Assistant: Created:
 - do-work/user-requests/UR-004/input.md (verbatim input)
 - do-work/user-requests/UR-004/assets/REQ-008-button-click-fix.png
 - do-work/REQ-008-button-click-fix.md
@@ -702,7 +747,7 @@ Claude: Created:
 ```
 User: do work dark mode should also affect the sidebar
 
-Claude: [Checks existing — REQ-005-dark-mode.md is in do-work/ queue]
+Assistant: [Checks existing — REQ-005-dark-mode.md is in do-work/ queue]
 Found REQ-005-dark-mode.md (pending). Added addendum for sidebar requirement.
 ```
 
@@ -713,7 +758,7 @@ Found REQ-005-dark-mode.md (pending). Added addendum for sidebar requirement.
 ```
 User: do work dark mode should also affect the sidebar
 
-Claude: [Checks existing — REQ-005-dark-mode.md is in do-work/working/]
+Assistant: [Checks existing — REQ-005-dark-mode.md is in do-work/working/]
 REQ-005-dark-mode.md is currently being worked on. I can't modify it
 while a builder is active. Creating a follow-up request instead.
 
@@ -731,7 +776,7 @@ User: do work [15 minutes of detailed requirements about an authentication syste
 including OAuth, user profiles, session management, password reset,
 security requirements, migration from old system, etc.]
 
-Claude: This is a complex request with multiple features. Creating UR folder
+Assistant: This is a complex request with multiple features. Creating UR folder
 and individual requests...
 
 Created:
@@ -759,7 +804,7 @@ filter the activity by type. Oh and the whole thing needs to work on mobile,
 so the layout should stack vertically on small screens. Also add a date
 range picker that affects all the widgets.
 
-Claude: [Detects: multiple components, specific requirements, responsive design
+Assistant: [Detects: multiple components, specific requirements, responsive design
 constraints, interactive features → Complex mode]
 
 Created:
@@ -778,6 +823,10 @@ nuances. You can run `/do-work verify` to check coverage against your original i
 
 ## What NOT To Do
 
+**For all requests (simple and complex):**
+- **Don't create REQ files without a UR folder** — every invocation creates both, linked via `user_request` frontmatter
+- **Don't skip the UR for simple requests** — even "add dark mode" gets a UR folder with `input.md`
+- **Don't skip the `user_request` field in REQ frontmatter** — this is the link back to the source of truth
 - Don't ask about implementation details
 - Don't create multi-page PRDs for **simple** requests
 - Don't refuse to create a request because it's "too vague" - capture what was said
@@ -787,7 +836,6 @@ nuances. You can run `/do-work verify` to check coverage against your original i
 
 **For complex requests specifically:**
 - **Don't summarize detailed requirements** - preserve the user's exact words
-- **Don't skip the UR input.md** - it's the source of truth
 - **Don't drop edge cases or constraints** - if the user mentioned it, capture it
 - **Don't assume something is obvious** - write it down explicitly
 - **Don't split related requirements** across unrelated requests - keep context together

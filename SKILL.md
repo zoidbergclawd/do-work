@@ -10,10 +10,12 @@ upstream: https://raw.githubusercontent.com/bladnman/do-work/main/SKILL.md
 A unified entry point for task capture and processing.
 
 **Actions:**
-- **do**: Capture new tasks/requests → writes to do-work/ folder
+- **do**: Capture new tasks/requests → creates UR folder (verbatim input) + REQ files (queue items), always paired
 - **work**: Process pending requests → executes the queue
 - **verify**: Evaluate captured REQs against original input → quality check
 - **cleanup**: Consolidate archive → moves loose REQs into UR folders, closes completed URs
+
+> **Core concept:** The do action always produces both a UR folder (preserving the original input) and REQ files (the queue items). Each REQ links back to its UR via `user_request` frontmatter. This pairing is mandatory for all requests — simple or complex.
 
 ## Routing Decision
 
